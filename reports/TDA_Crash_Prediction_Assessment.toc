@@ -1,0 +1,29 @@
+\contentsline {section}{\numberline {1}Executive Summary}{3}{section.1}%
+\contentsline {section}{\numberline {2}Introduction}{3}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Research Question}{3}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Background}{3}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Scope}{3}{subsection.2.3}%
+\contentsline {section}{\numberline {3}Methodology}{3}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Data Sources}{3}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}TDA Pipeline}{4}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Classification Framework}{4}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Limitations}{4}{subsection.3.4}%
+\contentsline {section}{\numberline {4}Results}{5}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Overall Performance}{5}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Performance Metrics}{5}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Performance by Crash Event}{5}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Visualization}{5}{subsection.4.4}%
+\contentsline {section}{\numberline {5}Analysis}{6}{section.5}%
+\contentsline {subsection}{\numberline {5.1}What the Signal Measures}{6}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Why Certain Crashes Are Detected}{6}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Why Certain Crashes Are Missed}{7}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}The False Positive Problem}{7}{subsection.5.4}%
+\contentsline {section}{\numberline {6}Conclusions and Recommendations}{7}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Assessment of the Methodology}{7}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Strengths}{7}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Limitations}{8}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}Recommendations}{8}{subsection.6.4}%
+\contentsline {subsection}{\numberline {6.5}Future Work}{8}{subsection.6.5}%
+\contentsline {section}{\numberline {A}Technical Implementation}{8}{appendix.A}%
+\contentsline {subsection}{\numberline {A.1}Repository Structure}{8}{subsection.A.1}%
+\contentsline {subsection}{\numberline {A.2}Data Files}{9}{subsection.A.2}%
