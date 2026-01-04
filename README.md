@@ -125,7 +125,7 @@ Required: `quantmod`, `TDA`, `Kendall`, `parallel`, `dplyr`, `readr`, `zoo`, `gg
 │   └── processed/              # TDA signals and classifications
 ├── reports/
 │   ├── figures/                # Visualizations
-│   └── TDA_Crash_Prediction_Assessment.md
+│   └── TDA_Crash_Prediction_Assessment.pdf
 └── docs/
 ```
 
