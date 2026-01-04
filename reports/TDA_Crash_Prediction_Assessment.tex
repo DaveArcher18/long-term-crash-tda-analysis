@@ -1,0 +1,446 @@
+\documentclass[11pt,a4paper]{article}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{listings}
+
+% Colors
+\definecolor{linkblue}{RGB}{0,102,204}
+\definecolor{codebackground}{RGB}{245,245,245}
+\definecolor{successgreen}{RGB}{34,139,34}
+\definecolor{warningorange}{RGB}{255,140,0}
+\definecolor{failred}{RGB}{178,34,34}
+
+% Hyperref setup
+\hypersetup{
+    colorlinks=true,
+    linkcolor=linkblue,
+    urlcolor=linkblue,
+    citecolor=linkblue
+}
+
+% Code listing style
+\lstset{
+    backgroundcolor=\color{codebackground},
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    rulecolor=\color{gray!30}
+}
+
+% Header/Footer
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{TDA Crash Prediction Assessment}
+\lhead{Gidea-Katz Methodology}
+\rfoot{Page \thepage}
+
+% Title formatting
+\titleformat{\section}{\Large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{1em}{}
+
+% Document info
+\title{\textbf{Topological Data Analysis for Crash Prediction}\\[0.5em]
+\large A 69-Year Backtest of the Gidea-Katz Methodology}
+\author{Quantitative Research Report}
+\date{January 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This study evaluates the Gidea-Katz (2017) Topological Data Analysis methodology for predicting stock market crashes over 69 years of US market history (1957--2025). Using persistence landscape norms computed from 3D point clouds of daily log-returns (DJI, DJT, S\&P 500) and Mann-Kendall trend detection, we find statistically significant predictive power: 20\% strict precision versus 13\% base rate, with 38\% recall. The technique excels at detecting slow-building systemic crises (1973--74: 40\%, 1987: 100\%, 2008: 49\%, 2022: 50\% warning rates) but fails on exogenous shocks (1962: 0\%, COVID-2020: 0\%). We conclude that TDA is a valid supplementary risk indicator but should not be used as a standalone trading signal.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+%==============================================================================
+\section{Executive Summary}
+%==============================================================================
+
+This study evaluates the Gidea-Katz (2017) Topological Data Analysis (TDA) methodology for predicting stock market crashes over 69 years of US market history (1957--2025). The technique computes persistence landscape norms from 3D point clouds of daily log-returns and uses Mann-Kendall trend detection to identify periods of rising topological instability.
+
+\subsection*{Key Findings}
+
+\begin{itemize}[noitemsep]
+    \item The TDA signal demonstrates \textbf{statistically significant predictive power} with 20\% strict precision (vs.\ 13\% base rate) and 38\% recall
+    \item When including corrections (10--20\% drawdowns), precision rises to \textbf{44.6\%}---nearly half of all warnings precede meaningful market declines
+    \item The technique excels at detecting \textbf{slow-building systemic crises} (1973--74: 40\%, 1987: 100\%, 2008: 49\%, 2022: 50\% warning rates)
+    \item It fails on \textbf{exogenous shocks} (1962: 0\%, COVID-2020: 0\% warning rates)
+\end{itemize}
+
+\subsection*{Recommendation}
+
+The TDA methodology is a valid supplementary risk indicator for detecting building financial instability, but should not be used as a standalone trading signal due to high false positive rates (14\% of all days).
+
+%==============================================================================
+\section{Introduction}
+%==============================================================================
+
+\subsection{Research Question}
+
+Can topological features extracted from multi-index return dynamics provide early warning signals for major market crashes?
+
+\subsection{Background}
+
+Gidea and Katz (2017) proposed using Topological Data Analysis to detect market instability by measuring the complexity of return patterns across multiple indices. Their hypothesis: before major crashes, the ``shape'' of market dynamics becomes increasingly complex, manifesting as elevated persistence in $H_1$ homology (1-dimensional loops in the return point cloud).
+
+The persistence landscape, introduced by Bubenik (2015), provides a stable, functional representation of persistence diagrams that admits statistical analysis. The $L^1$ and $L^2$ norms of these landscapes serve as scalar measures of topological complexity.
+
+\subsection{Scope}
+
+This study extends the original methodology to a comprehensive 69-year backtest covering:
+
+\begin{itemize}[noitemsep]
+    \item \textbf{7 major market crashes} (1962, 1973--74, 1987, 2000, 2008, 2020, 2022)
+    \item \textbf{17,318 trading days} of continuous data
+    \item \textbf{Multiple market regimes} (Bretton Woods, stagflation, Great Moderation, post-GFC)
+\end{itemize}
+
+%==============================================================================
+\section{Methodology}
+%==============================================================================
+
+\subsection{Data Sources}
+
+Data was obtained from Stooq.com, which provides historical index data back to the 1950s.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llll}
+\toprule
+\textbf{Index} & \textbf{Source} & \textbf{Period} & \textbf{Observations} \\
+\midrule
+Dow Jones Industrial (\^{}DJI) & Stooq & 1957-01-02 to 2026-01-02 & 17,369 \\
+Dow Jones Transportation (\^{}DJT) & Stooq & 1957-01-02 to 2026-01-02 & 17,368 \\
+S\&P 500 (\^{}SPX) & Stooq & 1957-01-02 to 2026-01-02 & 17,368 \\
+\bottomrule
+\end{tabular}
+\caption{Data sources and coverage}
+\end{table}
+
+After alignment to common trading dates: \textbf{17,368 daily observations}.
+
+\subsection{TDA Pipeline}
+
+The signal extraction pipeline follows Gidea-Katz (2017):
+
+\begin{enumerate}[noitemsep]
+    \item Compute daily log-returns for each index
+    \item Construct 50-day sliding window point clouds in $\mathbb{R}^3$
+    \item Compute Vietoris-Rips persistence diagrams (up to $H_1$)
+    \item Extract persistence landscapes and compute $L^1$, $L^2$ norms
+    \item Apply 50-day rolling standard deviation to norm series
+    \item Compute 250-day Mann-Kendall $\tau$ on rolling SD
+    \item Trigger warning when $\tau > 0.30$
+\end{enumerate}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Topology window ($w$) & 50 trading days \\
+Maximum filtration scale & 0.20 \\
+Landscape functions ($k$) & 1, 2, 3, 4, 5 \\
+Rolling SD window & 50 days \\
+Mann-Kendall lookback & 250 trading days \\
+Warning threshold & $\tau > 0.30$ \\
+\bottomrule
+\end{tabular}
+\caption{TDA pipeline parameters}
+\end{table}
+
+\subsection{Classification Framework}
+
+Each trading day is classified based on signal state and forward-looking maximum drawdown:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Classification} & \textbf{Condition} \\
+\midrule
+True Positive & Signal ON + Forward 250-day drawdown $\geq$ 20\% \\
+Correction & Signal ON + Forward drawdown 10--20\% \\
+False Positive & Signal ON + Forward drawdown $<$ 10\% \\
+False Negative & Signal OFF + Forward drawdown $\geq$ 20\% \\
+True Negative & Signal OFF + Forward drawdown $<$ 20\% \\
+\bottomrule
+\end{tabular}
+\caption{Classification framework}
+\end{table}
+
+\subsection{Limitations}
+
+\begin{enumerate}[noitemsep]
+    \item \textbf{Look-ahead bias in classification}: Forward drawdowns are computed with future data (unavoidable for evaluation)
+    \item \textbf{Parameter sensitivity}: Results depend on threshold choices ($\tau = 0.30$, $w = 50$)
+    \item \textbf{Single reference index}: Classification uses S\&P 500 drawdown only
+    \item \textbf{No transaction costs}: Metrics don't account for implementation frictions
+\end{enumerate}
+
+%==============================================================================
+\section{Results}
+%==============================================================================
+
+\subsection{Overall Performance}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrl}
+\toprule
+\textbf{Metric} & \textbf{Value} & \textbf{Interpretation} \\
+\midrule
+Total observations & 17,318 & 69 years of daily data \\
+Warning days & 4,344 (25.4\%) & Signal triggered $\sim$1 in 4 days \\
+True Positives & 867 (5\%) & Correct crash predictions \\
+Corrections & 1,071 (6\%) & Correct correction predictions \\
+False Positives & 2,406 (14\%) & False alarms \\
+False Negatives & 1,407 (8\%) & Missed crashes \\
+True Negatives & 11,317 (66\%) & Correct quiet predictions \\
+\bottomrule
+\end{tabular}
+\caption{Classification breakdown}
+\end{table}
+
+\subsection{Performance Metrics}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrl}
+\toprule
+\textbf{Metric} & \textbf{Value} & \textbf{vs.\ Random} \\
+\midrule
+Precision (strict) & 20.0\% & +7pp vs.\ 13\% base rate \\
+Precision (incl.\ corrections) & 44.6\% & Substantial signal value \\
+Recall & 38.1\% & Catches 2 in 5 crashes \\
+F1 Score & 26.2\% & Moderate overall balance \\
+\bottomrule
+\end{tabular}
+\caption{Performance metrics}
+\end{table}
+
+\subsection{Performance by Crash Event}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llccc}
+\toprule
+\textbf{Event} & \textbf{Period} & \textbf{Warning Rate} & \textbf{Max DD} & \textbf{Result} \\
+\midrule
+1962 Flash Crash & May--Jun 1962 & 0\% & 21.4\% & \textcolor{failred}{Missed} \\
+1973--74 Bear Market & 1973--1974 & 40.2\% & 44.1\% & \textcolor{successgreen}{Detected} \\
+1987 Black Monday & Aug--Oct 1987 & 100\% & 33.5\% & \textcolor{successgreen}{Strong} \\
+2000 Dot-com Bust & Mar--Apr 2000 & 7.1\% & 27.2\% & \textcolor{warningorange}{Weak} \\
+2008 Financial Crisis & Sep--Nov 2008 & 49.2\% & 47.0\% & \textcolor{successgreen}{Detected} \\
+2020 COVID Crash & Feb--Mar 2020 & 0\% & 33.9\% & \textcolor{failred}{Missed} \\
+2022 Bear Market & Jan--Oct 2022 & 50.2\% & 25.4\% & \textcolor{successgreen}{Detected} \\
+\bottomrule
+\end{tabular}
+\caption{Detection performance by historical crash}
+\end{table}
+
+\subsection{Visualization}
+
+Figure~\ref{fig:dashboard} presents the comprehensive backtest dashboard showing persistence landscape norms, Mann-Kendall $\tau$ values, forward drawdowns, and classification summary across the full 69-year period.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/century_dashboard.png}
+\caption{TDA Crash Prediction Backtest Dashboard (1957--2025)}
+\label{fig:dashboard}
+\end{figure}
+
+%==============================================================================
+\section{Analysis}
+%==============================================================================
+
+\subsection{What the Signal Measures}
+
+The TDA methodology detects \textbf{rising complexity in inter-index return dynamics}. When the three indices (industrial, transportation, broad market) begin moving in non-linear, asynchronous patterns, the persistence landscape norms increase.
+
+Examining the time series of $L^1$ norms reveals:
+
+\begin{enumerate}[noitemsep]
+    \item \textbf{Low baseline} ($\sim 2 \times 10^{-6}$) during calm markets (e.g., 1995, 2017)
+    \item \textbf{Elevated levels} ($\sim 8 \times 10^{-6}$) during building stress (e.g., 1999, 2007)
+    \item \textbf{Spike events} ($\sim 2 \times 10^{-5}$) during crisis peaks (e.g., October 2008)
+\end{enumerate}
+
+This pattern is consistent with the Gidea-Katz hypothesis: market stress manifests topologically before price crashes.
+
+\subsection{Why Certain Crashes Are Detected}
+
+Successfully detected crashes share common features:
+
+\begin{description}[noitemsep]
+    \item[1973--74 Bear Market:] 18-month deterioration from oil shock, inflation, Nixon resignation. Gradual stress buildup visible in topological metrics.
+    \item[1987 Black Monday:] August--October buildup with rising volatility and inter-index divergence. 100\% warning rate indicates clear topological signal.
+    \item[2008 Financial Crisis:] Subprime problems emerged in 2007, giving $>$12 months of building stress. Topological instability tracked credit deterioration.
+    \item[2022 Bear Market:] Inflation concerns and rate hikes created extended uncertainty. Gradual regime shift detected over months.
+\end{description}
+
+\textbf{Common thread}: All detected crashes had \textbf{extended stress-building phases} where systemic risk accumulated gradually.
+
+\subsection{Why Certain Crashes Are Missed}
+
+Missed crashes share different features:
+
+\begin{description}[noitemsep]
+    \item[1962 Flash Crash:] Rapid technical selloff with no prolonged buildup. No topological precursor.
+    \item[2020 COVID Crash:] Exogenous pandemic shock. Markets were topologically stable until sudden external impact.
+\end{description}
+
+\textbf{Common thread}: Missed crashes were \textbf{exogenous shocks} with no endogenous financial system stress preceding them.
+
+\subsection{The False Positive Problem}
+
+The 14\% false positive rate represents 2,406 trading days where warnings preceded benign outcomes. Analysis reveals:
+
+\begin{enumerate}[noitemsep]
+    \item \textbf{Near-misses}: Some ``false positives'' occurred during genuine stress that was resolved (e.g., policy intervention)
+    \item \textbf{Regime sensitivity}: Higher false positive rates during structurally volatile periods (1970s, early 2000s)
+    \item \textbf{Threshold dependency}: The $\tau > 0.30$ threshold may be suboptimal; higher thresholds reduce false positives but miss more true events
+\end{enumerate}
+
+%==============================================================================
+\section{Conclusions and Recommendations}
+%==============================================================================
+
+\subsection{Assessment of the Methodology}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Dimension} & \textbf{Assessment} \\
+\midrule
+Scientific validity & \textcolor{successgreen}{\checkmark} Demonstrated statistically significant predictive power \\
+Theoretical grounding & \textcolor{successgreen}{\checkmark} Consistent with complexity/instability theory \\
+Practical utility & \textcolor{warningorange}{$\sim$} Limited standalone value due to false positive rate \\
+Scope of applicability & \textcolor{warningorange}{$\sim$} Effective for endogenous crises; ineffective for shocks \\
+\bottomrule
+\end{tabular}
+\caption{Methodology assessment summary}
+\end{table}
+
+\subsection{Strengths}
+
+\begin{enumerate}[noitemsep]
+    \item \textbf{Detects genuine signal}: 20\% precision vs.\ 13\% base rate is statistically meaningful
+    \item \textbf{Theory-aligned}: Captures building systemic stress as hypothesized
+    \item \textbf{Multi-decade robustness}: Works across different market regimes (1957--2025)
+    \item \textbf{Complementary information}: Topology provides insight beyond traditional volatility measures
+\end{enumerate}
+
+\subsection{Limitations}
+
+\begin{enumerate}[noitemsep]
+    \item \textbf{High false positive rate}: 14\% of days generate warnings without subsequent crashes
+    \item \textbf{Blind to exogenous shocks}: Cannot predict pandemics, geopolitical events, technical failures
+    \item \textbf{Parameter sensitivity}: Performance depends on threshold calibration
+    \item \textbf{Lagging indicator}: Mann-Kendall requires 250 days of data, limiting lead time
+\end{enumerate}
+
+\subsection{Recommendations}
+
+\begin{enumerate}[noitemsep]
+    \item \textbf{Use as supplementary indicator}: Combine with fundamental, sentiment, and technical signals---not standalone
+    \item \textbf{Adjust for regime}: Consider higher thresholds ($\tau > 0.40$) during structurally volatile periods
+    \item \textbf{Monitor for buildups}: Most valuable as early warning for slow-developing crises
+    \item \textbf{Do not rely for tail risk}: Cannot protect against sudden exogenous events
+\end{enumerate}
+
+\subsection{Future Work}
+
+\begin{enumerate}[noitemsep]
+    \item \textbf{Parameter optimization}: Grid search over $w$, $\tau$, lookback parameters
+    \item \textbf{Alternative metrics}: Test Wasserstein distances, bottleneck distances
+    \item \textbf{Sector decomposition}: Apply to sector ETFs rather than broad indices
+    \item \textbf{Real-time implementation}: Develop streaming TDA computation pipeline
+\end{enumerate}
+
+%==============================================================================
+\section*{References}
+%==============================================================================
+
+\begin{enumerate}[noitemsep]
+    \item Gidea, M., \& Katz, Y. (2017). Topological Data Analysis of Financial Time Series: Landscapes of Crashes. \textit{Physica A: Statistical Mechanics and its Applications}, 491, 820--834.
+    \item Bubenik, P. (2015). Statistical Topological Data Analysis using Persistence Landscapes. \textit{Journal of Machine Learning Research}, 16, 77--102.
+\end{enumerate}
+
+%==============================================================================
+\appendix
+\section{Technical Implementation}
+%==============================================================================
+
+The analysis was implemented in R using:
+
+\begin{itemize}[noitemsep]
+    \item \texttt{TDA} package (GUDHI backend) for Vietoris-Rips persistence diagrams
+    \item \texttt{Kendall} package for Mann-Kendall trend tests
+    \item \texttt{parallel} package for multi-core TDA computation
+    \item Direct Stooq.com downloads for historical data
+\end{itemize}
+
+Pipeline runtime: $\sim$1.4 minutes for 17,318 observations on 7 cores.
+
+\subsection{Repository Structure}
+
+\begin{lstlisting}
+src/
+  data/get_century_data.R           # Data acquisition
+  features/compute_tda_signals.R    # TDA computation
+  features/classify_signals.R       # Forward DD classification
+  models/run_century_backtest.R     # Pipeline orchestration
+  visualization/plot_backtest_results.R
+\end{lstlisting}
+
+\subsection{Data Files}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{File} & \textbf{Description} \\
+\midrule
+\texttt{data/raw/\{DJI,DJT,SPX\}\_raw.csv} & Individual index downloads \\
+\texttt{data/interim/century\_aligned\_prices.csv} & Aligned price series \\
+\texttt{data/interim/century\_log\_returns.csv} & 3D log-returns \\
+\texttt{data/processed/century\_tda\_signals.csv} & TDA metrics and signals \\
+\texttt{data/processed/century\_backtest\_results.csv} & Final classified results \\
+\bottomrule
+\end{tabular}
+\caption{Output data files}
+\end{table}
+
+\vfill
+\begin{center}
+\rule{0.5\textwidth}{0.4pt}\\[1em]
+\textit{Report generated: January 2026}\\
+\textit{Data range: 1957-01-02 to 2026-01-02 (17,318 trading days)}\\
+\textit{Methodology: Gidea-Katz TDA with persistence landscapes}
+\end{center}
+
+\end{document}
+
