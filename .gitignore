@@ -1,0 +1,53 @@
+# R-specific
+.Rhistory
+.Rdata
+.RData
+.Ruserdata
+.Rproj.user/
+*.Rproj
+
+# renv
+renv/library/
+renv/local/
+renv/staging/
+renv/python/
+
+# Data files (large)
+data/raw/*.csv
+data/raw/*.zip
+data/raw/*.xlsx
+!data/raw/.gitkeep
+
+# Model artifacts (large)
+models/*.rds
+models/*.RData
+!models/.gitkeep
+
+# Generated reports
+reports/figures/*.png
+reports/figures/*.pdf
+reports/*.html
+reports/*.pdf
+!reports/figures/.gitkeep
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Python (if any scripts)
+__pycache__/
+*.pyc
+.env
+venv/
+
+context/
