@@ -4,7 +4,7 @@ Applying the Gidea & Katz (2017) methodology to detect early warning signals of 
 
 ## Overview
 
-This project evaluates whether Topological Data Analysis (TDA) can provide statistically reliable early warning signals for major US equity market crashes. We run a systematic backtest across ~68 years of market history (1957–2025) using the methodology from:
+This project evaluates whether Topological Data Analysis (TDA) can provide statistically reliable early warning signals for major US equity market crashes. We run a systematic backtest across 69 years of market history (1957–2025) using the methodology from:
 
 > Gidea, M., & Katz, Y. (2017). *Topological Data Analysis of Financial Time Series: Landscapes of Crashes.* arXiv:1703.04385.
 
@@ -17,7 +17,8 @@ Persistence landscape norms computed from sliding windows of log-returns exhibit
 | Parameter | Value |
 |-----------|-------|
 | Indices | DJI, DJT, S&P 500 |
-| Date Range | 1957-01-01 to present |
+| Data Source | Stooq.com |
+| Date Range | 1957-01-02 to 2026-01-02 (17,368 days) |
 | Topology Window | 50 trading days |
 | Signal Threshold | Mann-Kendall τ > 0.30 |
 | MK Lookback | 250 trading days |
@@ -78,17 +79,28 @@ plots <- plot_backtest_results(results)
 | FALSE_NEGATIVE | Signal OFF + Forward DD ≥ 20% |
 | TRUE_NEGATIVE | Signal OFF + Forward DD < 20% |
 
+## Results Summary
+
+| Metric | Value |
+|--------|-------|
+| Precision (strict) | 20.0% |
+| Precision (incl. corrections) | 44.6% |
+| Recall | 38.1% |
+| F1 Score | 26.2% |
+
+**See [Full Report](reports/TDA_Crash_Prediction_Assessment.md) for detailed analysis.**
+
 ## Historical Crashes Evaluated
 
-| Period | Event | Drawdown |
-|--------|-------|----------|
-| 1962 | Kennedy Slide | ~28% |
-| 1973–74 | Oil Crisis | ~48% |
-| 1987 | Black Monday | ~34% |
-| 2000–02 | Dot-com Bust | ~49% |
-| 2008–09 | Financial Crisis | ~57% |
-| 2020 | COVID Crash | ~34% |
-| 2022 | Inflation Bear | ~25% |
+| Period | Event | Warning Rate | Max DD |
+|--------|-------|--------------|--------|
+| 1962 | Kennedy Slide | 0% ✗ | 21% |
+| 1973–74 | Oil Crisis | 40% ✓ | 44% |
+| 1987 | Black Monday | 100% ✓ | 34% |
+| 2000–02 | Dot-com Bust | 7% ⚠ | 27% |
+| 2008–09 | Financial Crisis | 49% ✓ | 47% |
+| 2020 | COVID Crash | 0% ✗ | 34% |
+| 2022 | Inflation Bear | 50% ✓ | 25% |
 
 ## Installation
 
@@ -108,9 +120,13 @@ Required: `quantmod`, `TDA`, `Kendall`, `parallel`, `dplyr`, `readr`, `zoo`, `gg
 │   ├── models/run_century_backtest.R
 │   └── visualization/plot_backtest_results.R
 ├── data/
-│   ├── interim/
-│   └── processed/
-└── reports/figures/
+│   ├── raw/                    # Individual index downloads
+│   ├── interim/                # Aligned prices and returns
+│   └── processed/              # TDA signals and classifications
+├── reports/
+│   ├── figures/                # Visualizations
+│   └── TDA_Crash_Prediction_Assessment.md
+└── docs/
 ```
 
 ## References

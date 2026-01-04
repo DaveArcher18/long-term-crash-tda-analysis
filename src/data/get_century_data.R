@@ -1,30 +1,32 @@
 # get_century_data.R
 # Data Acquisition Module: Fetch historical index data for Grand Historical Backtest
 #
-# Downloads daily adjusted close prices for major US indices from Yahoo Finance,
+# Downloads daily close prices for major US indices from Stooq (free historical data),
 # aligns to common trading dates, and computes log-returns for TDA analysis.
 #
-# Tickers:
-#   - ^DJI  (Dow Jones Industrial Average)
-#   - ^DJT  (Dow Jones Transportation Average)
-#   - ^GSPC (S&P 500)
+# Data Source: Stooq.com (provides free historical data back to 1950s)
 #
-# Date Range: 1957-01-01 to present (post S&P 500 launch)
+# Tickers:
+#   - ^DJI  (Dow Jones Industrial Average) - available from 1914
+#   - ^DJT  (Dow Jones Transportation Average) - available from 1914
+#   - ^SPX  (S&P 500) - available from 1950
+#
+# Date Range: 1957-01-01 to present
 #
 # Output:
+#   - data/raw/{ticker}_raw.csv (individual raw downloads)
 #   - data/interim/century_aligned_prices.csv (aligned daily prices)
 #   - data/interim/century_log_returns.csv (3D log-returns for TDA)
 #
 # Usage:
 #   source("src/data/get_century_data.R")
-#   data <- get_century_data()  # Returns list with prices and returns
+#   data <- get_century_data()
 
 # ------------------------------------------------------------------------------
 # SETUP
 # ------------------------------------------------------------------------------
 
 suppressPackageStartupMessages({
-    library(quantmod)
     library(dplyr)
     library(readr)
     library(xts)
@@ -40,9 +42,10 @@ log_error <- function(...) stop(sprintf("[%s] ERROR %s", Sys.time(), sprintf(...
 # CONFIGURATION
 # ------------------------------------------------------------------------------
 
-CENTURY_TICKERS <- c("^DJI", "^DJT", "^GSPC")
-CENTURY_TICKER_NAMES <- c("DJI", "DJT", "SPX")
-CENTURY_START_DATE <- as.Date("1957-01-01")
+# Stooq ticker symbols
+STOOQ_TICKERS <- c("^DJI", "^DJT", "^SPX")
+TICKER_NAMES <- c("DJI", "DJT", "SPX")
+START_DATE <- as.Date("1957-01-01")
 
 # Output paths
 RAW_DIR <- "data/raw"
@@ -51,24 +54,94 @@ PRICES_FILE <- file.path(INTERIM_DIR, "century_aligned_prices.csv")
 RETURNS_FILE <- file.path(INTERIM_DIR, "century_log_returns.csv")
 
 # ------------------------------------------------------------------------------
-# FUNCTIONS
+# STOOQ DOWNLOAD FUNCTIONS
 # ------------------------------------------------------------------------------
 
-#' Download adjusted close prices from Yahoo Finance
+#' Download historical data from Stooq
 #'
-#' @param symbol Yahoo Finance ticker symbol (e.g., "^DJI")
-#' @param start_date Start date for data retrieval
-#' @param end_date End date for data retrieval (default: today)
+#' Stooq provides free CSV downloads via direct URL.
+#' URL format: https://stooq.com/q/d/l/?s={symbol}&d1={start}&d2={end}
+#'
+#' @param symbol Stooq ticker symbol (e.g., "^DJI")
+#' @param start_date Start date
+#' @param end_date End date
 #' @return data.frame with date and close columns, or NULL on failure
-download_yahoo_prices <- function(symbol, start_date, end_date = Sys.Date()) {
-    log_info("  Downloading %s...", symbol)
+download_stooq <- function(symbol, start_date, end_date = Sys.Date()) {
+    log_info("  Downloading %s from Stooq...", symbol)
+    
+    # Format dates for Stooq URL (YYYYMMDD)
+    d1 <- format(start_date, "%Y%m%d")
+    d2 <- format(end_date, "%Y%m%d")
+    
+    # Construct URL
+    url <- sprintf("https://stooq.com/q/d/l/?s=%s&d1=%s&d2=%s", 
+                   URLencode(symbol, reserved = TRUE), d1, d2)
     
     tryCatch({
+        # Download to temporary file
+        temp_file <- tempfile(fileext = ".csv")
+        download.file(url, temp_file, quiet = TRUE, method = "curl")
+        
+        # Read CSV
+        df <- read_csv(temp_file, show_col_types = FALSE)
+        unlink(temp_file)
+        
+        # Check if we got valid data
+        if (is.null(df) || nrow(df) == 0) {
+            log_warn("    No data returned from Stooq for %s", symbol)
+            return(NULL)
+        }
+        
+        # Stooq returns: Date, Open, High, Low, Close, Volume
+        # Standardize column names
+        names(df) <- tolower(names(df))
+        
+        if (!"date" %in% names(df) || !"close" %in% names(df)) {
+            log_warn("    Unexpected column format from Stooq for %s", symbol)
+            return(NULL)
+        }
+        
+        result <- data.frame(
+            date = as.Date(df$date),
+            close = as.numeric(df$close)
+        )
+        
+        # Clean data
+        result <- result[!is.na(result$close) & result$close > 0, ]
+        result <- result[order(result$date), ]
+        
+        log_info("    Retrieved %d observations (%s to %s)",
+                 nrow(result), min(result$date), max(result$date))
+        
+        return(result)
+        
+    }, error = function(e) {
+        log_warn("    Stooq download failed for %s: %s", symbol, e$message)
+        return(NULL)
+    })
+}
+
+#' Download from Yahoo Finance (fallback)
+#'
+#' @param symbol Yahoo ticker symbol
+#' @param start_date Start date
+#' @param end_date End date
+#' @return data.frame with date and close columns
+download_yahoo <- function(symbol, start_date, end_date = Sys.Date()) {
+    log_info("    Trying Yahoo Finance fallback for %s...", symbol)
+    
+    # Convert Stooq symbols to Yahoo format
+    yahoo_symbol <- symbol
+    if (symbol == "^SPX") yahoo_symbol <- "^GSPC"
+    
+    tryCatch({
+        suppressPackageStartupMessages(library(quantmod))
+        
         data_env <- new.env()
         
         suppressWarnings({
             getSymbols(
-                symbol,
+                yahoo_symbol,
                 src = "yahoo",
                 from = start_date,
                 to = end_date,
@@ -77,16 +150,16 @@ download_yahoo_prices <- function(symbol, start_date, end_date = Sys.Date()) {
             )
         })
         
-        # Handle special characters in symbol names
         symbol_key <- ls(data_env)[1]
+        if (length(symbol_key) == 0) return(NULL)
+        
         xts_data <- get(symbol_key, envir = data_env)
         
         if (is.null(xts_data) || nrow(xts_data) == 0) {
-            log_warn("  No data returned for %s", symbol)
             return(NULL)
         }
         
-        # Use Adjusted close (accounts for splits/dividends)
+        # Use Adjusted close from Yahoo
         adj_col <- grep("\\.Adjusted$", colnames(xts_data), value = TRUE)
         if (length(adj_col) == 0) {
             adj_col <- grep("\\.Close$", colnames(xts_data), value = TRUE)[1]
@@ -100,15 +173,42 @@ download_yahoo_prices <- function(symbol, start_date, end_date = Sys.Date()) {
         result <- result[!is.na(result$close), ]
         result <- result[order(result$date), ]
         
-        log_info("    Retrieved %d observations (%s to %s)",
+        log_info("    Yahoo retrieved %d observations (%s to %s)",
                  nrow(result), min(result$date), max(result$date))
         
         return(result)
         
     }, error = function(e) {
-        log_warn("  Download failed for %s: %s", symbol, e$message)
+        log_warn("    Yahoo download also failed for %s: %s", symbol, e$message)
         return(NULL)
     })
+}
+
+#' Download prices with fallback
+#'
+#' Tries Stooq first, falls back to Yahoo if needed.
+#'
+#' @param symbol Ticker symbol
+#' @param start_date Start date
+#' @param end_date End date
+#' @return data.frame with date and close columns
+download_prices <- function(symbol, start_date, end_date = Sys.Date()) {
+    # Try Stooq first (has longer history)
+    result <- download_stooq(symbol, start_date, end_date)
+    
+    # Fall back to Yahoo if Stooq fails
+    if (is.null(result) || nrow(result) < 100) {
+        result_yahoo <- download_yahoo(symbol, start_date, end_date)
+        
+        if (!is.null(result_yahoo)) {
+            # Use whichever has more data
+            if (is.null(result) || nrow(result_yahoo) > nrow(result)) {
+                result <- result_yahoo
+            }
+        }
+    }
+    
+    return(result)
 }
 
 #' Align multiple price series to common trading dates
@@ -143,32 +243,38 @@ align_price_series <- function(df_list) {
 #' Compute log-returns from price series
 #'
 #' @param prices Numeric vector of prices
-#' @return Numeric vector of log-returns (length = length(prices) - 1)
+#' @return Numeric vector of log-returns
 compute_log_returns <- function(prices) {
     diff(log(prices))
 }
 
+# ------------------------------------------------------------------------------
+# MAIN FUNCTION
+# ------------------------------------------------------------------------------
+
 #' Main data acquisition function for century backtest
 #'
-#' Downloads index data, aligns series, computes log-returns, and saves to interim.
+#' Downloads index data from Stooq (with Yahoo fallback), aligns series,
+#' computes log-returns, and saves results.
 #'
 #' @param start_date Start date (default: 1957-01-01)
 #' @param end_date End date (default: today)
 #' @param save_files Whether to save CSV files (default: TRUE)
 #' @return List with aligned_prices and log_returns data frames
 #' @export
-get_century_data <- function(start_date = CENTURY_START_DATE, 
+get_century_data <- function(start_date = START_DATE, 
                               end_date = Sys.Date(),
                               save_files = TRUE) {
     
     log_info("=== Century Data Acquisition ===")
     log_info("Date range: %s to %s", start_date, end_date)
-    log_info("Tickers: %s", paste(CENTURY_TICKERS, collapse = ", "))
+    log_info("Tickers: %s", paste(STOOQ_TICKERS, collapse = ", "))
+    log_info("Primary source: Stooq.com (fallback: Yahoo Finance)")
     
     # -------------------------------------------------------------------------
     # Step 1: Download all index data
     # -------------------------------------------------------------------------
-    log_info("\nStep 1: Downloading index data from Yahoo Finance")
+    log_info("\nStep 1: Downloading index data")
     
     raw_data <- list()
     
@@ -177,11 +283,11 @@ get_century_data <- function(start_date = CENTURY_START_DATE,
         dir.create(RAW_DIR, recursive = TRUE)
     }
     
-    for (i in seq_along(CENTURY_TICKERS)) {
-        ticker <- CENTURY_TICKERS[i]
-        name <- CENTURY_TICKER_NAMES[i]
+    for (i in seq_along(STOOQ_TICKERS)) {
+        ticker <- STOOQ_TICKERS[i]
+        name <- TICKER_NAMES[i]
         
-        prices <- download_yahoo_prices(ticker, start_date, end_date)
+        prices <- download_prices(ticker, start_date, end_date)
         
         if (is.null(prices) || nrow(prices) == 0) {
             log_error("Failed to download %s - aborting", ticker)
@@ -193,7 +299,7 @@ get_century_data <- function(start_date = CENTURY_START_DATE,
         if (save_files) {
             raw_file <- file.path(RAW_DIR, paste0(name, "_raw.csv"))
             write_csv(prices, raw_file)
-            log_info("    Saved raw data to: %s", raw_file)
+            log_info("    Saved to: %s", raw_file)
         }
     }
     
@@ -208,6 +314,18 @@ get_century_data <- function(start_date = CENTURY_START_DATE,
     log_info("  Date range: %s to %s", 
              min(aligned_prices$date), max(aligned_prices$date))
     
+    # Report coverage by decade
+    decades <- seq(1950, 2020, by = 10)
+    for (decade in decades) {
+        decade_start <- as.Date(paste0(decade, "-01-01"))
+        decade_end <- as.Date(paste0(decade + 9, "-12-31"))
+        decade_data <- aligned_prices[aligned_prices$date >= decade_start & 
+                                       aligned_prices$date <= decade_end, ]
+        if (nrow(decade_data) > 0) {
+            log_info("    %ds: %d trading days", decade, nrow(decade_data))
+        }
+    }
+    
     # -------------------------------------------------------------------------
     # Step 3: Compute log-returns
     # -------------------------------------------------------------------------
@@ -217,14 +335,14 @@ get_century_data <- function(start_date = CENTURY_START_DATE,
         date = aligned_prices$date[-1]
     )
     
-    for (name in CENTURY_TICKER_NAMES) {
+    for (name in TICKER_NAMES) {
         returns_df[[name]] <- compute_log_returns(aligned_prices[[name]])
     }
     
     log_info("  Log-returns computed: %d observations", nrow(returns_df))
     
     # Data quality summary
-    for (name in CENTURY_TICKER_NAMES) {
+    for (name in TICKER_NAMES) {
         log_info("    %s: mean=%.6f, sd=%.4f", 
                  name, mean(returns_df[[name]]), sd(returns_df[[name]]))
     }
@@ -277,4 +395,3 @@ load_century_data <- function() {
         log_returns = log_returns
     ))
 }
-
